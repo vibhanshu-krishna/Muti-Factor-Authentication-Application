@@ -23,15 +23,20 @@ function App() {
     setMessage('');
     setLoading(true);
     try {
-      const res = await axios.post('http://localhost:5000/api/register', { email, password });
+      await axios.post('http://localhost:5000/api/register', { email, password });
+
+      const res = await axios.post('http://localhost:5000/api/mfa/generate', { email});
+
+  
       setQrCodeUrl(res.data.qrCodeUrl);
       setStep(2);
       setMessage('Registration successful! Scan the QR code below.');
     } catch (err) {
       setMessage(err.response?.data?.message || 'Server error during registration');
-    } finally {
+    } /*finally {
       setLoading(false);
     }
+      */
   };
 
   // Handle MFA Verification
@@ -40,11 +45,11 @@ function App() {
     setMessage('');
     setLoading(true);
     try {
-      const res = await axios.post('http://localhost:5000/api/verify-mfa', { email, token: mfaToken });
+      const res = await axios.post('http://localhost:5000/api/mfa/verify', { email, token: mfaToken });
       setStep(3);
       setMessage(res.data.message);
     } catch (err) {
-      setMessage(err.response?.data?.message || 'Invalid 6-digit MFA Code');
+      setMessage(err.response?.data?.error || 'Invalid 6-digit MFA Code');
     } finally {
       setLoading(false);
     }
@@ -63,7 +68,7 @@ function App() {
       });
       setMessage(res.data.message);
     } catch (err) {
-      setMessage(err.response?.data?.message || 'Login failed');
+      setMessage(err.response?.data?.error || 'Login failed');
     } finally {
       setLoading(false);
     }

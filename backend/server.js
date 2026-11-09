@@ -96,7 +96,7 @@ app.post('/api/mfa/verify', async (req, res) => {
             return res.status(400).json({ error: 'Invalid MFA code. Please try again.' });
         }
 
-        user.isDirectModifiedMfaEnabled = true;
+        user.isMfaEnabled = true;
         await user.save();
 
         res.json({ message: 'MFA verified and enabled successfully!' });
@@ -126,7 +126,8 @@ app.post('/api/login', async (req, res) => {
     const verified = speakeasy.totp.verify({
         secret: user.mfaSecret,
         encoding: 'base32',
-        token: token
+        token: token,
+        window: 1
     });
 
     if(!verified)
@@ -137,6 +138,7 @@ app.post('/api/login', async (req, res) => {
     res.status(200).json({ message: 'Login successful with MFA' , userId: user._id});
 }
 catch (error){
+    console.error(error);
     res.status(500).json({ error: 'Server error during login' });
 }
 
