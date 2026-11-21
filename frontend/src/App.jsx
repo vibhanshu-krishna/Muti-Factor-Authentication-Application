@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 function App() {
   const [isLoginView, setIsLoginView] = useState(false);
   const [email, setEmail] = useState('');
@@ -11,10 +13,16 @@ function App() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const resetForm = () => {
+  const resetForm = (clearCredentials = false) => {
     setMessage('');
     setMfaToken('');
+    setQrCodeUrl('');
     setStep(1);
+    setLoading(false);
+    if (clearCredentials) {
+      setEmail('');
+      setPassword('');
+    }
   };
 
   // Handle Registration
@@ -23,20 +31,17 @@ function App() {
     setMessage('');
     setLoading(true);
     try {
-      await axios.post('http://localhost:5000/api/register', { email, password });
+      await axios.post(`${API_URL}/api/register`, { email, password }, { timeout: 10000 });
+      const res = await axios.post(`${API_URL}/api/mfa/generate`, { email }, { timeout: 10000 });
 
-      const res = await axios.post('http://localhost:5000/api/mfa/generate', { email});
-
-  
       setQrCodeUrl(res.data.qrCodeUrl);
       setStep(2);
       setMessage('Registration successful! Scan the QR code below.');
     } catch (err) {
-      setMessage(err.response?.data?.message || 'Server error during registration');
-    } /*finally {
+      setMessage(err.response?.data?.message || err.response?.data?.error || 'Server error during registration');
+    } finally {
       setLoading(false);
     }
-      */
   };
 
   // Handle MFA Verification
@@ -45,11 +50,11 @@ function App() {
     setMessage('');
     setLoading(true);
     try {
-      const res = await axios.post('http://localhost:5000/api/mfa/verify', { email, token: mfaToken });
+      const res = await axios.post(`${API_URL}/api/mfa/verify`, { email, token: mfaToken }, { timeout: 10000 });
       setStep(3);
       setMessage(res.data.message);
     } catch (err) {
-      setMessage(err.response?.data?.error || 'Invalid 6-digit MFA Code');
+      setMessage(err.response?.data?.error || err.response?.data?.message || 'Invalid 6-digit MFA Code');
     } finally {
       setLoading(false);
     }
@@ -61,14 +66,14 @@ function App() {
     setMessage('');
     setLoading(true);
     try {
-      const res = await axios.post('http://localhost:5000/api/login', {
-        email,
-        password,
-        token: mfaToken
-      });
+      const res = await axios.post(
+        `${API_URL}/api/login`,
+        { email, password, token: mfaToken },
+        { timeout: 10000 }
+      );
       setMessage(res.data.message);
     } catch (err) {
-      setMessage(err.response?.data?.error || 'Login failed');
+      setMessage(err.response?.data?.error || err.response?.data?.message || 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -86,14 +91,14 @@ function App() {
         <div style={styles.tabContainer}>
           <button
             type="button"
-            onClick={() => { setIsLoginView(false); resetForm(); }}
+            onClick={() => { setIsLoginView(false); resetForm(true); }}
             style={{ ...styles.tab, ...(isLoginView ? {} : styles.activeTab) }}
           >
             Register
           </button>
           <button
             type="button"
-            onClick={() => { setIsLoginView(true); resetForm(); }}
+            onClick={() => { setIsLoginView(true); resetForm(true); }}
             style={{ ...styles.tab, ...(isLoginView ? styles.activeTab : {}) }}
           >
             Login
@@ -141,6 +146,7 @@ function App() {
               <label style={styles.label}>6-Digit Authenticator Code</label>
               <input
                 type="text"
+                autoComplete="one-time-code"
                 placeholder="123456"
                 maxLength="6"
                 value={mfaToken}
@@ -200,6 +206,7 @@ function App() {
                     <label style={styles.label}>Enter 6-Digit Verification Code</label>
                     <input
                       type="text"
+                      autoComplete="one-time-code"
                       placeholder="123456"
                       maxLength="6"
                       value={mfaToken}
@@ -223,7 +230,8 @@ function App() {
                   Your account is protected with Two-Factor Authentication.
                 </p>
                 <button
-                  onClick={() => { setIsLoginView(true); resetForm(); }}
+                  type="button"
+                  onClick={() => { setIsLoginView(true); resetForm(false); }}
                   style={styles.primaryButton}
                 >
                   Proceed to Login
